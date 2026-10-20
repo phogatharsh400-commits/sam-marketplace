@@ -126,7 +126,18 @@ public class LotService {
 
     @Transactional(readOnly = true)
     public PageResponse<LotResponseDto> getOpenLots(CropType crop, String district, Pageable pageable) {
-        Page<ProduceLot> page = lotRepository.findOpenLots(LotStatus.OPEN, crop, district, pageable);
+        org.springframework.data.jpa.domain.Specification<ProduceLot> spec = (root, query, cb) -> {
+            java.util.List<jakarta.persistence.criteria.Predicate> predicates = new java.util.ArrayList<>();
+            predicates.add(cb.equal(root.get("status"), LotStatus.OPEN));
+            if (crop != null) {
+                predicates.add(cb.equal(root.get("crop"), crop));
+            }
+            if (district != null && !district.isBlank()) {
+                predicates.add(cb.equal(cb.lower(root.get("district")), district.toLowerCase().trim()));
+            }
+            return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
+        };
+        Page<ProduceLot> page = lotRepository.findAll(spec, pageable);
         return PageResponse.from(page.map(LotResponseDto::from));
     }
 

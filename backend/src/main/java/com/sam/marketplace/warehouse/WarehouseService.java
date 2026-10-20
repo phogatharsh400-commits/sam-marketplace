@@ -91,7 +91,17 @@ public class WarehouseService {
 
     @Transactional(readOnly = true)
     public PageResponse<WarehouseResponseDto> searchWarehouses(String district, String crop, Pageable pageable) {
-        Page<Warehouse> page = warehouseRepository.searchWarehouses(district, crop, pageable);
+        org.springframework.data.jpa.domain.Specification<Warehouse> spec = (root, query, cb) -> {
+            java.util.List<jakarta.persistence.criteria.Predicate> predicates = new java.util.ArrayList<>();
+            if (district != null && !district.isBlank()) {
+                predicates.add(cb.equal(cb.lower(root.get("district")), district.toLowerCase().trim()));
+            }
+            if (crop != null && !crop.isBlank()) {
+                predicates.add(cb.like(cb.lower(root.get("supportedCrops")), "%" + crop.toLowerCase().trim() + "%"));
+            }
+            return predicates.isEmpty() ? cb.conjunction() : cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
+        };
+        Page<Warehouse> page = warehouseRepository.findAll(spec, pageable);
         return PageResponse.from(page.map(WarehouseResponseDto::from));
     }
 
