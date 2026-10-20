@@ -1,0 +1,67 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: sam-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sam_marketplace
+      POSTGRES_USER: sam_user
+      POSTGRES_PASSWORD: sam_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sam_user -d sam_marketplace"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sam-network
+
+  # Java Spring Boot Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: sam-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/sam_marketplace
+      SPRING_DATASOURCE_USERNAME: sam_user
+      SPRING_DATASOURCE_PASSWORD: sam_password
+      JWT_SECRET: c2Ftc3VwZXJzZWNyZXRqd3RzaWduaW5na2V5MjAyNnNtYXJ0YWdyaWN1bHR1cmVwbGF0Zm9ybWFjYWRlbWljcHJvdG90eXBl
+      JWT_EXPIRATION_MS: 86400000
+      JWT_REFRESH_EXPIRATION_MS: 604800000
+      CORS_ALLOWED_ORIGINS: "http://localhost,http://localhost:80,http://localhost:5173,http://localhost:3000"
+    ports:
+      - "8080:8080"
+    networks:
+      - sam-network
+
+  # React Vite Frontend Application
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: sam-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+    networks:
+      - sam-network
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  sam-network:
+    driver: bridge
